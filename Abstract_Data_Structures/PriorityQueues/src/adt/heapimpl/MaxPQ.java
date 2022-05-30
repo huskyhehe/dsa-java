@@ -50,6 +50,7 @@ public class MaxPQ<Key> implements Iterable<Key> {
         assert isMaxHeap();
     }
 
+
     public boolean isEmpty() {
         return size == 0;
     }
@@ -93,6 +94,16 @@ public class MaxPQ<Key> implements Iterable<Key> {
         return max;
     }
 
+    private void resize(int capacity) {
+        assert capacity > size;
+        Key[] temp = (Key[]) new Object[capacity];
+        for (int i = 1; i <= size; i++) {
+            temp[i] = pq[i];
+        }
+        pq = temp;
+    }
+
+
     public void insert(Key x) {
 
         // double size of array if necessary
@@ -105,23 +116,118 @@ public class MaxPQ<Key> implements Iterable<Key> {
     }
 
 
+    /***************************************************************************
+     * Helper functions to restore the heap invariant.
+     ***************************************************************************/
 
-
-
-    // resize the underlying array to have the given capacity
-    private void resize(int capacity) {
-        assert capacity > size;
-        Key[] temp = (Key[]) new Object[capacity];
-        for (int i = 0; i < size; i ++) {
-            temp[i] = pq[i];
+    private void swim(int k) {
+        while (k > 1 && less(k / 2, k)) {
+            exchange(k / 2, k);
         }
-        pq = temp;
+        k /= 2;
+    }
+
+    private void sink(int k) {
+        while (k*2 < size) {
+            int j = k * 2;
+            if (j < size && less(j, j + 1)) {
+                j ++;
+            }
+            if (!less(k, j)) {
+                break;
+            }
+            k = j;
+        }
+    }
+
+    // is pq[1..n] a max heap?
+    private boolean isMaxHeap() {
+        for (int i = 1; i <= size; i ++) {
+            if (pq[i] != null) return false;
+        }
+
+        for (int i = size + 1; i < pq.length; i++) {
+            if (pq[i] != null) return false;
+        }
+
+        if (pq[0] != null) return false;
+
+        return isMaxHeapOrdered(1);
+    }
+
+    // is subtree of pq[1..n] rooted at k a max heap?
+    private boolean isMaxHeapOrdered(int k) {
+        if (k > size) return true;
+
+        int left = k * 2;
+        int right = k * 2 + 1;
+        if (left <= size && less(k, left)) return false;
+        if (right <= size && less(k, right)) return false;
+
+        return isMaxHeapOrdered(left) && isMaxHeapOrdered(right);
+    }
+
+
+    /***************************************************************************
+     * Helper functions for compares and swaps.
+     ***************************************************************************/
+    private boolean less(int i, int j) {
+        if (comparator == null) {
+            return ((Comparable<Key>) pq[i]).compareTo(pq[j]) < 0;
+        }
+        else {
+            return comparator.compare(pq[i], pq[j]) < 0;
+        }
+    }
+
+    private void exchange(int i, int j) {
+        Key swap = pq[i];
+        pq[i] = pq[j];
+        pq[j] = swap;
     }
 
 
 
+    /***************************************************************************
+     * Iterator.
+     ***************************************************************************/
+
+    /**
+     * Returns an iterator that iterates over the keys on this priority queue
+     * in descending order.
+     * The iterator doesn't implement {@code remove()} since it's optional.
+     * @return an iterator that iterates over the keys in descending order
+     */
     @Override
     public Iterator<Key> iterator() {
-        return null;
+        return new HeapIterator();
+    }
+
+    private class HeapIterator implements Iterator<Key> {
+
+        // create a new pq
+        private MaxPQ<Key> copy;
+
+        // add all items to copy of heap
+        // takes linear time since already in heap order so no keys move
+        public HeapIterator() {
+            if (comparator == null) copy = new MaxPQ<Key>(size);
+            else copy = new MaxPQ<Key>(size, comparator);
+            for (int i = 1; i <= size; i++)
+                copy.insert(pq[i]);
+        }
+
+        public boolean hasNext() {
+            return !copy.isEmpty();
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
+
+        public Key next() {
+            if (!hasNext()) throw new NoSuchElementException();
+            return copy.delMax();
+        }
     }
 }
